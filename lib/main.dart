@@ -24,6 +24,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const WelcomeScreen(),
+        '/register': (context) => RegisterScreen(),
         '/home': (context) => HomeScreen(
           token: ModalRoute.of(context)?.settings.arguments as String,
         ),

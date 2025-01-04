@@ -31,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiEndpoints.BASE_URL}/auth/register'),
+        Uri.parse('http://13.232.135.150:5000/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
@@ -70,8 +70,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close the dialog
-              Navigator.pop(context); // Navigate back to login or home
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Return to welcome screen
             },
             child: Text("OK"),
           ),
