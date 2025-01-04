@@ -3,91 +3,76 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class WelcomeScreen extends StatefulWidget {
+  const WelcomeScreen({Key? key}) : super(key: key);
+
   @override
   _WelcomeScreenState createState() => _WelcomeScreenState();
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLogin = true; // Toggle between login and register
-  bool _isLoading = false; // Add this line
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    setState(() {
-      _isLoading = true;  // Updated to use _isLoading
-    });
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
+      final url = 'http://13.232.135.150:5000/api/auth/login';
+      print('Attempting login at: $url');
+
       final response = await http.post(
-        Uri.parse('http://13.232.115.201:5000/api/auth/login'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': _emailController.text,
-          'password': _passwordController.text,
+          'email': email,
+          'password': password,
         }),
       );
 
-      setState(() {
-        _isLoading = false;  // Updated to use _isLoading
-      });
+      if (!mounted) return;
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['access_token'];
-        Navigator.pushNamed(context, '/gameplay', arguments: token);
+
+        if (token == null) {
+          throw 'Token is null';
+        }
+
+        Navigator.pushReplacementNamed(
+          context,
+          '/mode-selection',
+          arguments: token,
+        );
       } else {
-        final error = jsonDecode(response.body)['error'];
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error ?? 'Login failed')),
+          SnackBar(content: Text('Login failed. Please check your credentials.')),
         );
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;  // Updated to use _isLoading
-      });
+      print('Error during login: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
-    }
-  }
-
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    try {
-      final response = await http.post(
-        Uri.parse('http://13.232.115.201:5000/api/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'name': _nameController.text,
-          'email': _emailController.text,
-          'password': _passwordController.text,
-        }),
-      );
-
-      if (response.statusCode == 201) {
-        // Registration successful
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration successful! Please login.')),
-        );
-        setState(() {
-          _isLogin = true; // Switch to login form
-        });
-      } else {
-        // Registration failed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${response.body}')),
-        );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
     }
   }
 
@@ -95,84 +80,43 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isLogin ? 'Login' : 'Register'),
+        title: const Text('Login'),
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (!_isLogin) // Show name field only for registration
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
-                ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  return null;
-                },
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
               ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  return null;
-                },
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
               ),
-              SizedBox(height: 24),
+              obscureText: true,
+            ),
+            const SizedBox(height: 24),
+            if (_isLoading)
+              const CircularProgressIndicator()
+            else
               ElevatedButton(
-                onPressed: _isLoading ? null : (_isLogin ? _login : _register),
-                child: _isLoading 
-                  ? SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(_isLogin ? 'Login' : 'Register'),
+                onPressed: _handleLogin,
+                child: const Text('Login'),
               ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isLogin = !_isLogin;
-                  });
-                },
-                child: Text(_isLogin 
-                  ? 'Don\'t have an account? Register' 
-                  : 'Already have an account? Login'
-                ),
-              ),
-            ],
-          ),
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/register'),
+              child: const Text('Create Account'),
+            ),
+          ],
         ),
       ),
     );
@@ -180,7 +124,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
