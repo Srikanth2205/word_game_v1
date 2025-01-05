@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 
-class GameSelectionScreen extends StatelessWidget {
+class GameSelectionScreen extends StatefulWidget {
+  final String token;
+
+  const GameSelectionScreen({Key? key, required this.token}) : super(key: key);
+
+  @override
+  _GameSelectionScreenState createState() => _GameSelectionScreenState();
+}
+
+class _GameSelectionScreenState extends State<GameSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: true,
+        backgroundColor: Colors.blue,
         title: Text('Select Mode'),
-        actions: <Widget>[
+        actions: [
           IconButton(
             icon: Icon(
               Icons.home,
               color: Colors.white,
-              size: 24.0,
             ),
             onPressed: () {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/',
-                (route) => false,
-              );
+              Navigator.pushNamed(context, '/', arguments: widget.token);
             },
           ),
         ],

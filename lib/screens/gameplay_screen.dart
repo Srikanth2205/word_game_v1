@@ -72,7 +72,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          'http://13.232.135.150:5000/api/start-round?score=$score&mode=${widget.mode}',
+          'http://13.127.142.30:5000/api/start-round?score=$score&mode=${widget.mode}',
         ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
@@ -242,7 +242,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
   Future<void> fetchHint() async {
     try {
       final response = await http.post(
-        Uri.parse('http://13.232.135.150:5000/api/hint/'),
+        Uri.parse('http://13.127.142.30:5000/api/hint/'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
@@ -255,9 +255,21 @@ class _GameplayScreenState extends State<GameplayScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final hint = data['hint'];
-        for (int i = 0; i < hint.length; i++) {
-          controllers[i].text = hint[i];
-        }
+
+        // Ensure UI is updated within setState
+        setState(() {
+          for (int i = 0; i < hint.length; i++) {
+            controllers[i].text = hint[i];
+          }
+        });
+
+        // Optional: Provide feedback to the user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hint applied!'),
+            duration: Duration(seconds: 1),
+          ),
+        );
       } else {
         showError('Failed to fetch hint.');
       }
