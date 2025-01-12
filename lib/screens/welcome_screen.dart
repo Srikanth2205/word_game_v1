@@ -89,7 +89,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     setState(() => isLoading = true);
 
     try {
-      final url = 'http://13.127.142.30:5000/api/auth/login';
+      final url = 'http://13.127.133.11:5000/api/auth/login';
       print('Attempting login at: $url');
 
       final response = await http.post(

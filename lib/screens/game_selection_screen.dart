@@ -23,7 +23,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
               color: Colors.white,
             ),
             onPressed: () {
-              Navigator.pushNamed(context, '/', arguments: widget.token);
+              print('Home button pressed');
+              Navigator.pushNamed(context, '/home', arguments: widget.token);
             },
           ),
         ],

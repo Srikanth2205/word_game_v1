@@ -72,7 +72,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          'http://13.127.142.30:5000/api/start-round?score=$score&mode=${widget.mode}',
+          'http://13.127.133.11:5000/api/start-round?score=$score&mode=${widget.mode}',
         ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
@@ -241,8 +241,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   Future<void> fetchHint() async {
     try {
+      print('Initiating hint fetch...');
       final response = await http.post(
-        Uri.parse('http://13.127.142.30:5000/api/hint/'),
+        Uri.parse('http://13.232.135.150:5000/api/hint/'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
@@ -252,18 +253,20 @@ class _GameplayScreenState extends State<GameplayScreen> {
         }),
       );
 
+      print('Response received with status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final hint = data['hint'];
+        print('Hint data received: $hint');
 
-        // Ensure UI is updated within setState
         setState(() {
           for (int i = 0; i < hint.length; i++) {
             controllers[i].text = hint[i];
           }
+          // Ensure any other necessary state updates are made here
+          print('Hint applied to text controllers.');
         });
 
-        // Optional: Provide feedback to the user
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hint applied!'),
@@ -271,9 +274,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
           ),
         );
       } else {
+        print('Failed to fetch hint, status code: ${response.statusCode}');
         showError('Failed to fetch hint.');
       }
     } catch (e) {
+      print('Error during hint fetch: $e');
       showError('Error fetching hint: $e');
     }
   }
