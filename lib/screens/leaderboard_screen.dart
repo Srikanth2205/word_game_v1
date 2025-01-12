@@ -52,10 +52,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         print('Leaderboard Response: ${response.body}');
         final dynamic decodedResponse = jsonDecode(response.body);
         setState(() {
-          // Access the 'leaderboard' key from the response
           if (decodedResponse is Map &&
               decodedResponse.containsKey('leaderboard')) {
-            leaderboardData = decodedResponse['leaderboard'] as List;
+            leaderboardData = (decodedResponse['leaderboard'] as List)
+                .where((entry) =>
+                    selectedMode == 'all' || entry['mode'] == selectedMode)
+                .toList();
           } else {
             leaderboardData = [];
           }
