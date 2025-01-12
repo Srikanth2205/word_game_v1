@@ -5,7 +5,7 @@ import '../utils/constants.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   final String token;
-  
+
   const LeaderboardScreen({
     Key? key,
     required this.token,
@@ -29,26 +29,32 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final endpoint = isTopLeaderboard 
-          ? ApiEndpoints.TOP_LEADERBOARD 
+      final endpoint = isTopLeaderboard
+          ? ApiEndpoints.TOP_LEADERBOARD
           : ApiEndpoints.LEADERBOARD;
-      
+
       String url = '${ApiEndpoints.BASE_URL}$endpoint';
       if (selectedMode != 'all') {
         url += '?mode=$selectedMode';
       }
-          
+
+      print('Fetching leaderboard from: $url');
+
       final response = await http.get(
         Uri.parse(url),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
+
+      print('Leaderboard Response Status: ${response.statusCode}');
+      print('Leaderboard Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         print('Leaderboard Response: ${response.body}');
         final dynamic decodedResponse = jsonDecode(response.body);
         setState(() {
           // Access the 'leaderboard' key from the response
-          if (decodedResponse is Map && decodedResponse.containsKey('leaderboard')) {
+          if (decodedResponse is Map &&
+              decodedResponse.containsKey('leaderboard')) {
             leaderboardData = decodedResponse['leaderboard'] as List;
           } else {
             leaderboardData = [];
@@ -59,6 +65,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         throw Exception('Failed to load leaderboard: ${response.statusCode}');
       }
     } catch (e) {
+      print('Leaderboard Error: $e');
       setState(() {
         isLoading = false;
         leaderboardData = [];
@@ -145,11 +152,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Mode: ${entry['mode']?.toString().toUpperCase() ?? 'All'}'),
+                            Text(
+                                'Mode: ${entry['mode']?.toString().toUpperCase() ?? 'All'}'),
                             Text('Date: ${entry['timestamp'] ?? 'N/A'}'),
                           ],
                         ),
-                        trailing: index < 3 
+                        trailing: index < 3
                             ? Icon(Icons.emoji_events, color: Colors.amber)
                             : null,
                       );

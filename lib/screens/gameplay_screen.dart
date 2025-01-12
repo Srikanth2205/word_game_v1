@@ -21,6 +21,7 @@ class GameplayScreen extends StatefulWidget {
 }
 
 class _GameplayScreenState extends State<GameplayScreen> {
+  bool isHighScore = false;
   String jumbledWord = '';
   String wordToken = '';
   int wordLength = 0;
@@ -40,6 +41,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   List<String> validWords = [];
   List<FocusNode> focusNodes = [];
+  List<String> currentValidWords = [];
 
   @override
   void initState() {
@@ -75,18 +77,24 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   Future<void> fetchJumbledWord() async {
     try {
+      final url =
+          'http://13.235.31.190:5000/api/start-round?score=$score&mode=${widget.mode}';
+      print('Fetching jumbled word from: $url');
+
       final response = await http.get(
-        Uri.parse(
-          'http://13.235.31.190:5000/api/start-round?score=$score&mode=${widget.mode}',
-        ),
+        Uri.parse(url),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
+
+      print('FetchJumbledWord Response Status: ${response.statusCode}');
+      print('FetchJumbledWord Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          jumbledWord = data['jumbled'];
-          wordToken = data['token'];
+          jumbledWord = data['jumbled'] ?? '';
+          wordToken = data['token'] ?? '';
+          correctWord = data['correctWord']?.toString() ?? jumbledWord;
           wordLength = jumbledWord.length;
           timeLimit = data['timeLimit'] ?? 0;
           focusNodes = List.generate(
@@ -114,6 +122,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
         }
       }
     } catch (e) {
+      print('FetchJumbledWord Error: $e');
       showError('Error fetching word: $e');
     }
   }
@@ -168,27 +177,34 @@ class _GameplayScreenState extends State<GameplayScreen> {
     final guess = controllers.map((c) => c.text.toUpperCase()).join();
     lastGuess = guess;
 
-    print('Validating word: $guess with token: $wordToken'); // Debug log
-
     try {
+      final url = '${ApiEndpoints.BASE_URL}/validate/';
+      final body = {
+        'userInput': guess,
+        'token': wordToken,
+        'streak': streak,
+        'timeTaken': isTimedMode ? timeLimit : 0,
+      };
+
+      print('Validating word at: $url');
+      print('Validation Request Body: $body');
+
       final response = await http.post(
-        Uri.parse('${ApiEndpoints.BASE_URL}/validate/'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'userInput': guess,
-          'token': wordToken,
-          'streak': streak,
-          'timeTaken': isTimedMode ? timeLimit : 0,
-        }),
+        body: jsonEncode(body),
       );
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      print('ValidateWord Response Status: ${response.statusCode}');
+      print('ValidateWord Response Body: ${response.body}');
 
       final data = jsonDecode(response.body);
+
+      // Store valid words from response
+      currentValidWords = List<String>.from(data['validWords'] ?? []);
 
       setState(() {
         if (data['isCorrect']) {
@@ -198,14 +214,8 @@ class _GameplayScreenState extends State<GameplayScreen> {
           score = data['score'];
           streak = data['streak'];
 
-          // Show success feedback briefly
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['message'] ?? 'Correct!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
-          );
+          // Show success feedback with valid words
+          showSuccessDialog(currentValidWords);
 
           Future.delayed(AppConstants.SUCCESS_DELAY, () {
             if (mounted && (timeLimit > 0 || !isTimedMode)) {
@@ -216,14 +226,13 @@ class _GameplayScreenState extends State<GameplayScreen> {
           // Wrong answer
           isWrongInput = true;
           isCorrectInput = false;
-          List<String> validWords = List<String>.from(data['validWords'] ?? []);
 
           if (widget.mode == 'survival') {
-            showIncorrectWordDialog(validWords);
+            showIncorrectWordDialog(currentValidWords);
             endGame(false);
           } else if (widget.mode == 'classic') {
             wrongAttempts++;
-            showIncorrectWordDialog(validWords);
+            showIncorrectWordDialog(currentValidWords);
             if (wrongAttempts >= 3) {
               endGame(false);
             } else {
@@ -232,14 +241,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
               });
             }
           } else if (widget.mode == 'timed') {
-            // Quick feedback for timed mode
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Try one of these: ${validWords.join(", ")}'),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 2),
-              ),
-            );
+            showIncorrectWordDialog(currentValidWords);
             Future.delayed(AppConstants.FEEDBACK_DELAY, () {
               if (mounted) {
                 clearInput();
@@ -250,26 +252,31 @@ class _GameplayScreenState extends State<GameplayScreen> {
         }
       });
     } catch (e) {
-      print("Validation error: $e");
+      print('ValidateWord Error: $e');
       showError('Error validating word: $e');
     }
   }
 
   Future<void> fetchHint() async {
     try {
-      print('Initiating hint fetch...');
+      final url = '${ApiEndpoints.BASE_URL}/hint/';
+      final body = {'token': wordToken};
+
+      print('Fetching hint from: $url');
+      print('Hint Request Body: $body');
+
       final response = await http.post(
-        Uri.parse('${ApiEndpoints.BASE_URL}/hint/'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'token': wordToken,
-        }),
+        body: jsonEncode(body),
       );
 
-      print('Response received with status: ${response.statusCode}');
+      print('FetchHint Response Status: ${response.statusCode}');
+      print('FetchHint Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final hint = data['hint'];
@@ -314,7 +321,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
         showError('Failed to fetch hint.');
       }
     } catch (e) {
-      print('Error during hint fetch: $e');
+      print('FetchHint Error: $e');
       showError('Error fetching hint: $e');
     }
   }
@@ -328,14 +335,24 @@ class _GameplayScreenState extends State<GameplayScreen> {
             Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Your guess: $lastGuess'),
             SizedBox(height: 10),
             Text('Valid words:', style: TextStyle(fontWeight: FontWeight.bold)),
-            ...validWords.map((word) => Text(
-                  word,
-                  style: TextStyle(fontSize: 16, color: Colors.blue),
-                )),
+            if (validWords.isNotEmpty)
+              ...validWords.map((word) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      word,
+                      style: TextStyle(fontSize: 16, color: Colors.blue),
+                    ),
+                  ))
+            else
+              Text(
+                'No valid words available',
+                style: TextStyle(fontSize: 16, color: Colors.red),
+              ),
             if (widget.mode == 'classic' && wrongAttempts < 3)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -366,6 +383,54 @@ class _GameplayScreenState extends State<GameplayScreen> {
     );
   }
 
+  void showSuccessDialog(List<String> validWords) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Correct!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Your word: $lastGuess'),
+            SizedBox(height: 10),
+            Text('All possible words:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            ...validWords.map((word) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    word,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: word == lastGuess ? Colors.green : Colors.blue,
+                      fontWeight: word == lastGuess
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                )),
+            SizedBox(height: 10),
+            Text('Score: $score',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Streak: $streak',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (mounted && (timeLimit > 0 || !isTimedMode)) {
+                fetchJumbledWord();
+              }
+            },
+            child: Text('Continue'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void showError(String message) {
     showDialog(
       context: context,
@@ -386,27 +451,34 @@ class _GameplayScreenState extends State<GameplayScreen> {
     if (isGameOver) return;
     setState(() => isGameOver = true);
 
-    // Submit final score
-    bool isHighScore = false;
     try {
+      final url = '${ApiEndpoints.BASE_URL}${ApiEndpoints.SUBMIT_SCORE}';
+      final body = {
+        'score': score,
+        'mode': widget.mode,
+      };
+
+      print('Submitting score to: $url');
+      print('Score Submit Request Body: $body');
+
       final submitResponse = await http.post(
-        Uri.parse('${ApiEndpoints.BASE_URL}${ApiEndpoints.SUBMIT_SCORE}'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'score': score,
-          'mode': widget.mode,
-        }),
+        body: jsonEncode(body),
       );
+
+      print('SubmitScore Response Status: ${submitResponse.statusCode}');
+      print('SubmitScore Response Body: ${submitResponse.body}');
 
       if (submitResponse.statusCode == 200) {
         final data = jsonDecode(submitResponse.body);
         isHighScore = data['isHighScore'] ?? false;
       }
     } catch (e) {
-      print('Error submitting score: $e');
+      print('SubmitScore Error: $e');
     }
 
     String message = isWin
@@ -447,36 +519,12 @@ class _GameplayScreenState extends State<GameplayScreen> {
       appBar: AppBar(
         title: Text('Gameplay (${widget.mode})'),
         actions: [
-          if (isTimedMode)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: timeLimit <= 10
-                      ? Colors.red.withOpacity(0.2)
-                      : Colors.blue.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.timer,
-                      color: timeLimit <= 10 ? Colors.red : Colors.white,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      formatTime(timeLimit),
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: timeLimit <= 10 ? Colors.red : Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          IconButton(
+            icon: Icon(Icons.home),
+            onPressed: () {
+              Navigator.pushNamed(context, '/home', arguments: widget.token);
+            },
+          ),
         ],
       ),
       body: isLoading
@@ -484,17 +532,25 @@ class _GameplayScreenState extends State<GameplayScreen> {
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isTimedMode)
+                  if (isTimedMode) ...[
                     Container(
-                      margin: EdgeInsets.only(bottom: 20),
+                      margin: EdgeInsets.only(bottom: 24),
                       padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       decoration: BoxDecoration(
-                        color: timeLimit <= 10
-                            ? Colors.red.withOpacity(0.1)
-                            : Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(15),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (timeLimit <= 10 ? Colors.red : Colors.blue)
+                                .withOpacity(0.2),
+                            spreadRadius: 2,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                         border: Border.all(
                           color: timeLimit <= 10 ? Colors.red : Colors.blue,
                           width: 2,
@@ -506,13 +562,13 @@ class _GameplayScreenState extends State<GameplayScreen> {
                           Icon(
                             Icons.timer,
                             color: timeLimit <= 10 ? Colors.red : Colors.blue,
-                            size: 28,
+                            size: 32,
                           ),
-                          SizedBox(width: 8),
+                          SizedBox(width: 12),
                           Text(
                             formatTime(timeLimit),
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 32,
                               fontWeight: FontWeight.bold,
                               color: timeLimit <= 10 ? Colors.red : Colors.blue,
                             ),
@@ -520,7 +576,15 @@ class _GameplayScreenState extends State<GameplayScreen> {
                         ],
                       ),
                     ),
-                  Text('Jumbled Word: $jumbledWord'),
+                  ],
+                  Text(
+                    'Jumbled Word: $jumbledWord',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
@@ -569,10 +633,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
                       ),
                     ),
                   ),
-                  ElevatedButton(
-                    onPressed: fetchHint,
-                    child: Text('Hint'),
-                  ),
+                  if (!isTimedMode)
+                    ElevatedButton(
+                      onPressed: fetchHint,
+                      child: Text('Hint'),
+                    ),
                 ],
               ),
             ),
