@@ -72,7 +72,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          'http://13.127.133.11:5000/api/start-round?score=$score&mode=${widget.mode}',
+          'http://13.235.31.190:5000/api/start-round?score=$score&mode=${widget.mode}',
         ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
@@ -243,7 +243,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     try {
       print('Initiating hint fetch...');
       final response = await http.post(
-        Uri.parse('http://13.232.135.150:5000/api/hint/'),
+        Uri.parse('http://13.235.31.190:5000/api/hint/'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
