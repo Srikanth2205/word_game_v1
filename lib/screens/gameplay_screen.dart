@@ -128,9 +128,16 @@ class _GameplayScreenState extends State<GameplayScreen> {
   void onTextChanged(String value, int index) {
     print("Text changed at index $index: $value");
 
+    if (value.isEmpty && index > 0) {
+      // Handle backspace - move focus to previous field
+      controllers[index].clear();
+      FocusScope.of(context).previousFocus();
+      return;
+    }
+
     if (value.isNotEmpty) {
       controllers[index].text = value.toUpperCase();
-      
+
       if (index < wordLength - 1) {
         FocusScope.of(context).nextFocus();
       } else {
@@ -148,10 +155,10 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   Future<void> validateWord() async {
     if (!areAllFieldsFilled()) return;
-    
+
     final guess = controllers.map((c) => c.text.toUpperCase()).join();
     lastGuess = guess;
-    
+
     print('Validating word: $guess with token: $wordToken'); // Debug log
 
     try {
@@ -173,7 +180,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
       print('Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
-      
+
       setState(() {
         if (data['isCorrect']) {
           // Correct answer
@@ -181,7 +188,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
           isCorrectInput = true;
           score = data['score'];
           streak = data['streak'];
-          
+
           // Show success feedback briefly
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -201,7 +208,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
           isWrongInput = true;
           isCorrectInput = false;
           List<String> validWords = List<String>.from(data['validWords'] ?? []);
-          
+
           if (widget.mode == 'survival') {
             showIncorrectWordDialog(validWords);
             endGame(false);
@@ -243,7 +250,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     try {
       print('Initiating hint fetch...');
       final response = await http.post(
-        Uri.parse('http://13.235.31.190:5000/api/hint/'),
+        Uri.parse('${ApiEndpoints.BASE_URL}/hint/'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
@@ -260,13 +267,38 @@ class _GameplayScreenState extends State<GameplayScreen> {
         print('Hint data received: $hint');
 
         setState(() {
+          // Clear any previous state
+          isWrongInput = false;
+          isCorrectInput = false;
+
+          // Clear all controllers first
+          controllers.forEach((controller) => controller.clear());
+
+          // Apply the hint
           for (int i = 0; i < hint.length; i++) {
-            controllers[i].text = hint[i];
+            if (hint[i] != '_') {
+              controllers[i].text = hint[i].toUpperCase();
+            }
           }
-          // Ensure any other necessary state updates are made here
-          print('Hint applied to text controllers.');
+
+          // Find the first empty field
+          int nextEmptyIndex =
+              controllers.indexWhere((controller) => controller.text.isEmpty);
+
+          // Schedule focus for the next frame
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (nextEmptyIndex != -1) {
+              // If there's an empty field, focus it
+              FocusScope.of(context).requestFocus(
+                  nextEmptyIndex == 0 ? firstFocusNode : FocusNode());
+            } else {
+              // If all fields are filled, validate the word
+              validateWord();
+            }
+          });
         });
 
+        // Show feedback
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hint applied!'),
@@ -288,7 +320,8 @@ class _GameplayScreenState extends State<GameplayScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
+        title:
+            Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -296,15 +329,16 @@ class _GameplayScreenState extends State<GameplayScreen> {
             SizedBox(height: 10),
             Text('Valid words:', style: TextStyle(fontWeight: FontWeight.bold)),
             ...validWords.map((word) => Text(
-              word,
-              style: TextStyle(fontSize: 16, color: Colors.blue),
-            )),
+                  word,
+                  style: TextStyle(fontSize: 16, color: Colors.blue),
+                )),
             if (widget.mode == 'classic' && wrongAttempts < 3)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
                   'You have ${3 - wrongAttempts} chances left',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  style:
+                      TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
               ),
           ],
@@ -313,7 +347,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              if (widget.mode == 'survival' || 
+              if (widget.mode == 'survival' ||
                   (widget.mode == 'classic' && wrongAttempts >= 3) ||
                   (widget.mode == 'timed' && timeLimit <= 0)) {
                 endGame(false);
@@ -371,11 +405,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
       print('Error submitting score: $e');
     }
 
-    String message = isWin 
-      ? 'Congratulations! Your score: $score'
-      : isTimedMode && timeLimit <= 0 
-        ? 'Time\'s Up! Final score: $score'
-        : 'Game Over! Final score: $score';
+    String message = isWin
+        ? 'Congratulations! Your score: $score'
+        : isTimedMode && timeLimit <= 0
+            ? 'Time\'s Up! Final score: $score'
+            : 'Game Over! Final score: $score';
 
     if (mounted) {
       // Use single navigation call
@@ -415,7 +449,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: timeLimit <= 10 ? Colors.red.withOpacity(0.2) : Colors.blue.withOpacity(0.2),
+                  color: timeLimit <= 10
+                      ? Colors.red.withOpacity(0.2)
+                      : Colors.blue.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -448,9 +484,12 @@ class _GameplayScreenState extends State<GameplayScreen> {
                   if (isTimedMode)
                     Container(
                       margin: EdgeInsets.only(bottom: 20),
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        color: timeLimit <= 10 ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                        color: timeLimit <= 10
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.blue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
                           color: timeLimit <= 10 ? Colors.red : Colors.blue,
@@ -497,15 +536,18 @@ class _GameplayScreenState extends State<GameplayScreen> {
                             counterText: "",
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.blue, width: 2),
+                              borderSide:
+                                  BorderSide(color: Colors.blue, width: 2),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.blue, width: 2),
+                              borderSide:
+                                  BorderSide(color: Colors.blue, width: 2),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.blue, width: 2),
+                              borderSide:
+                                  BorderSide(color: Colors.blue, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.white,
@@ -513,7 +555,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: isWrongInput ? Colors.red : (isCorrectInput ? Colors.green : Colors.black),
+                            color: isWrongInput
+                                ? Colors.red
+                                : (isCorrectInput
+                                    ? Colors.green
+                                    : Colors.black),
                           ),
                         ),
                       ),
