@@ -39,11 +39,16 @@ class _GameplayScreenState extends State<GameplayScreen> {
   String lastGuess = '';
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   List<String> validWords = [];
+  List<FocusNode> focusNodes = [];
 
   @override
   void initState() {
     super.initState();
     isTimedMode = widget.mode == 'timed';
+    focusNodes = List.generate(
+      4,
+      (index) => index == 0 ? firstFocusNode : FocusNode(),
+    );
     fetchJumbledWord();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       firstFocusNode.requestFocus();
@@ -84,6 +89,10 @@ class _GameplayScreenState extends State<GameplayScreen> {
           wordToken = data['token'];
           wordLength = jumbledWord.length;
           timeLimit = data['timeLimit'] ?? 0;
+          focusNodes = List.generate(
+            wordLength,
+            (index) => index == 0 ? firstFocusNode : FocusNode(),
+          );
           controllers = List.generate(
             wordLength,
             (_) => TextEditingController(),
@@ -267,11 +276,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
         print('Hint data received: $hint');
 
         setState(() {
-          // Clear any previous state
+          // Clear previous states
           isWrongInput = false;
           isCorrectInput = false;
-
-          // Clear all controllers first
           controllers.forEach((controller) => controller.clear());
 
           // Apply the hint
@@ -281,24 +288,21 @@ class _GameplayScreenState extends State<GameplayScreen> {
             }
           }
 
-          // Find the first empty field
+          // Find first empty field
           int nextEmptyIndex =
               controllers.indexWhere((controller) => controller.text.isEmpty);
 
-          // Schedule focus for the next frame
+          // Focus management
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (nextEmptyIndex != -1) {
-              // If there's an empty field, focus it
-              FocusScope.of(context).requestFocus(
-                  nextEmptyIndex == 0 ? firstFocusNode : FocusNode());
+              FocusScope.of(context).requestFocus(focusNodes[nextEmptyIndex]);
             } else {
-              // If all fields are filled, validate the word
+              // If no empty fields, validate the word
               validateWord();
             }
           });
         });
 
-        // Show feedback
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hint applied!'),
@@ -527,7 +531,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
                         margin: EdgeInsets.symmetric(horizontal: 4),
                         child: TextField(
                           controller: controllers[index],
-                          focusNode: index == 0 ? firstFocusNode : null,
+                          focusNode: focusNodes[index],
                           textAlign: TextAlign.center,
                           maxLength: 1,
                           textCapitalization: TextCapitalization.characters,
@@ -577,7 +581,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   @override
   void dispose() {
-    firstFocusNode.dispose();
+    for (var node in focusNodes) {
+      node.dispose();
+    }
     for (var controller in controllers) {
       controller.dispose();
     }
