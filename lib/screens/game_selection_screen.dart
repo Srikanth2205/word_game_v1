@@ -16,16 +16,27 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
       appBar: AppBar(
         backgroundColor: Colors.blue,
         title: Text('Select Mode'),
+        automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.home,
-              color: Colors.white,
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              icon: Icon(
+                Icons.home,
+                color: Colors.white,
+                size: 28,
+              ),
+              tooltip: 'Go to Home',
+              onPressed: () {
+                print('Home button pressed');
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/home',
+                  (route) => false,
+                  arguments: widget.token,
+                );
+              },
             ),
-            onPressed: () {
-              print('Home button pressed');
-              Navigator.pushNamed(context, '/home', arguments: widget.token);
-            },
           ),
         ],
       ),

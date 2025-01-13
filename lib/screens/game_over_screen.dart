@@ -26,7 +26,6 @@ class GameOverScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Navigate to mode selection on back press
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
@@ -43,7 +42,7 @@ class GameOverScreen extends StatelessWidget {
         ),
         body: SafeArea(
           child: Center(
-            child: SingleChildScrollView( // Make entire content scrollable
+            child: SingleChildScrollView(
               padding: EdgeInsets.all(16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -110,6 +109,17 @@ class GameOverScreen extends StatelessWidget {
                           );
                         },
                         child: Text('Play Again'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/home',
+                            (route) => false,
+                            arguments: token,
+                          );
+                        },
+                        child: Text('Home'),
                       ),
                       ElevatedButton(
                         onPressed: () {
