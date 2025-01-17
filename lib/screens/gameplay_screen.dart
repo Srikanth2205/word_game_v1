@@ -5,6 +5,7 @@ import '../utils/constants.dart';
 import './game_over_screen.dart';
 import './mode_selection_screen.dart';
 import './leaderboard_screen.dart';
+import 'dart:math';
 
 class GameplayScreen extends StatefulWidget {
   final String token;
@@ -44,6 +45,9 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   bool showStreakEmoji = false;
+  final List<FloatingScore> _floatingScores = [];
+  final Random _random = Random();
+  bool _showCelebration = false;
 
   @override
   void initState() {
@@ -213,6 +217,14 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
               }
             });
           });
+
+          // Show floating score
+          _showFloatingScore(data['points'] ?? 0);
+          
+          // Show celebration for higher scores or streaks
+          if (data['points'] > 4 || streak > 2) {
+            setState(() => _showCelebration = true);
+          }
         } else {
           // Wrong answer handling
           if (widget.mode == 'timed') {
@@ -657,6 +669,79 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
     return '👏';
   }
 
+  void _showFloatingScore(int points) {
+    final animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
+    setState(() {
+      _floatingScores.add(FloatingScore(
+        points,
+        animation,
+        Offset(_random.nextDouble() * 100 - 50, -20), // Random X position
+      ));
+    });
+
+    _animationController.forward(from: 0.0);
+
+    Future.delayed(Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          _floatingScores.removeAt(0);
+        });
+      }
+    });
+  }
+
+  Widget _buildCelebrationOverlay() {
+    if (!_showCelebration) return SizedBox.shrink();
+
+    return IgnorePointer(
+      child: Stack(
+        children: List.generate(20, (index) {
+          final delay = _random.nextDouble() * 0.5;
+          final initialPosition = Offset(
+            _random.nextDouble() * MediaQuery.of(context).size.width,
+            MediaQuery.of(context).size.height,
+          );
+          final targetPosition = Offset(
+            _random.nextDouble() * MediaQuery.of(context).size.width,
+            -100,
+          );
+
+          return TweenAnimationBuilder<Offset>(
+            tween: Tween(begin: initialPosition, end: targetPosition),
+            duration: Duration(seconds: 2),
+            curve: Curves.easeOutQuad,
+            onEnd: () {
+              if (mounted && index == 0) {
+                setState(() => _showCelebration = false);
+              }
+            },
+            builder: (context, value, child) {
+              return Positioned(
+                left: value.dx,
+                top: value.dy,
+                child: _getRandomEmoji(),
+              );
+            },
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _getRandomEmoji() {
+    final emojis = ['🎉', '⭐', '🌟', '✨', '🎊', '🌸', '🌺', '🌼'];
+    return Text(
+      emojis[_random.nextInt(emojis.length)],
+      style: TextStyle(fontSize: 24),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -693,68 +778,99 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
             ),
         ],
       ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  if (isTimedMode)
-                    Container(
-                      margin: EdgeInsets.only(bottom: 20),
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: timeLimit <= 10 ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
+      body: Stack(
+        children: [
+          // Existing game UI
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                if (isTimedMode)
+                  Container(
+                    margin: EdgeInsets.only(bottom: 20),
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: timeLimit <= 10 ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: timeLimit <= 10 ? Colors.red : Colors.blue,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer,
                           color: timeLimit <= 10 ? Colors.red : Colors.blue,
-                          width: 2,
+                          size: 28,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.timer,
+                        SizedBox(width: 8),
+                        Text(
+                          formatTime(timeLimit),
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                             color: timeLimit <= 10 ? Colors.red : Colors.blue,
-                            size: 28,
                           ),
-                          SizedBox(width: 8),
-                          Text(
-                            formatTime(timeLimit),
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: timeLimit <= 10 ? Colors.red : Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  _buildScoreDisplay(),
-                  Text(
-                    'Jumbled Word: $jumbledWord',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      wordLength,
-                      (index) => _buildTextField(index),
-                    ),
+                _buildScoreDisplay(),
+                Text(
+                  'Jumbled Word: $jumbledWord',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
                   ),
-                  ElevatedButton(
-                    onPressed: isHintLoading ? null : fetchHint,
-                    child: Text('Hint'),
+                ),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    wordLength,
+                    (index) => _buildTextField(index),
                   ),
-                ],
-              ),
+                ),
+                ElevatedButton(
+                  onPressed: isHintLoading ? null : fetchHint,
+                  child: Text('Hint'),
+                ),
+              ],
             ),
+          ),
+          
+          // Floating scores
+          ..._floatingScores.map((score) {
+            return Positioned(
+              top: 100,
+              left: MediaQuery.of(context).size.width / 2 + score.position.dx,
+              child: FadeTransition(
+                opacity: Tween<double>(begin: 1.0, end: 0.0).animate(score.animation),
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: Offset(0, 0),
+                    end: Offset(0, -2),
+                  ).animate(score.animation),
+                  child: Text(
+                    '+${score.score}',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+          
+          // Celebration overlay
+          _buildCelebrationOverlay(),
+        ],
+      ),
     );
   }
 
