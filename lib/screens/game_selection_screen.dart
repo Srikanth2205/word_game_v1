@@ -15,28 +15,24 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: Text('Select Mode'),
-        automaticallyImplyLeading: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: Icon(
-                Icons.home,
-                color: Colors.white,
-                size: 28,
-              ),
-              tooltip: 'Go to Home',
-              onPressed: () {
-                print('Home button pressed');
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/home',
-                  (route) => false,
-                  arguments: widget.token,
-                );
-              },
+        title: const Text('Select Mode'),
+        automaticallyImplyLeading: true,
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(
+              Icons.home,
+              color: Colors.white,
+              size: 28,
             ),
+            onPressed: () {
+              print('Home button pressed in game selection');
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/home',
+                (route) => false,
+                arguments: widget.token,
+              );
+            },
           ),
         ],
       ),
@@ -76,6 +72,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
   Widget _buildModeCard(BuildContext context, String title, String description, String mode) {
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      elevation: 4.0,
       child: InkWell(
         onTap: () {
           Navigator.pushNamed(

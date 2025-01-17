@@ -128,19 +128,17 @@ class _GameplayScreenState extends State<GameplayScreen> {
   }
 
   void onTextChanged(String value, int index) {
-    print("Text changed at index $index: $value");
+    if (value.length == 1 && index < wordLength - 1) {
+      // Move to next field
+      FocusScope.of(context).nextFocus();
+    } else if (value.isEmpty && index > 0) {
+      // Move to previous field on backspace
+      FocusScope.of(context).previousFocus();
+    }
 
-    if (value.isNotEmpty) {
-      controllers[index].text = value.toUpperCase();
-      
-      if (index < wordLength - 1) {
-        FocusScope.of(context).nextFocus();
-      } else {
-        if (areAllFieldsFilled()) {
-          print("All boxes filled, current word: ${getCurrentWord()}");
-          validateWord();
-        }
-      }
+    // Check if word is complete
+    if (areAllFieldsFilled()) {
+      validateWord();
     }
   }
 
@@ -241,8 +239,10 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   Future<void> fetchHint() async {
     try {
+      setState(() => isHintLoading = true);
+      
       final response = await http.post(
-        Uri.parse('http://43.205.216.87:5000/api/hint/'),
+        Uri.parse('${ApiEndpoints.BASE_URL}/hint/'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
@@ -256,14 +256,34 @@ class _GameplayScreenState extends State<GameplayScreen> {
         final data = jsonDecode(response.body);
         final hint = data['hint'];
 
-        // Ensure UI is updated within setState
         setState(() {
-          for (int i = 0; i < hint.length; i++) {
-            controllers[i].text = hint[i];
+          // Update only the first empty field with hint
+          int emptyIndex = controllers.indexWhere((controller) => controller.text.isEmpty);
+          if (emptyIndex != -1) {
+            controllers[emptyIndex].text = hint[emptyIndex];
+            
+            // Ensure the text field remains editable
+            controllers[emptyIndex].selection = TextSelection.fromPosition(
+              TextPosition(offset: controllers[emptyIndex].text.length),
+            );
           }
+          isHintLoading = false;
         });
 
-        // Optional: Provide feedback to the user
+        // Find next empty field and focus it
+        int nextEmptyIndex = controllers.indexWhere((controller) => controller.text.isEmpty);
+        if (nextEmptyIndex != -1) {
+          // Small delay to ensure proper focus
+          Future.delayed(Duration(milliseconds: 50), () {
+            if (mounted) {
+              FocusScope.of(context).requestFocus(
+                nextEmptyIndex == 0 ? firstFocusNode : FocusNode()
+              );
+            }
+          });
+        }
+
+        // Show feedback
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hint applied!'),
@@ -271,9 +291,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
           ),
         );
       } else {
+        setState(() => isHintLoading = false);
         showError('Failed to fetch hint.');
       }
     } catch (e) {
+      setState(() => isHintLoading = false);
       showError('Error fetching hint: $e');
     }
   }
@@ -398,6 +420,104 @@ class _GameplayScreenState extends State<GameplayScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
+  void showGameFeedback(List<String> validWords) {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      'Game Over!',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your answer was incorrect.',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Valid words were:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      ...validWords.map((word) => Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          '• $word',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: Size(double.infinity, 50),
+                    backgroundColor: Colors.blue,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context); // Close feedback
+                    endGame(false); // Move to game over screen
+                  },
+                  child: Text(
+                    'View Final Score',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -477,41 +597,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       wordLength,
-                      (index) => Container(
-                        width: 50,
-                        height: 50,
-                        margin: EdgeInsets.symmetric(horizontal: 4),
-                        child: TextField(
-                          controller: controllers[index],
-                          focusNode: index == 0 ? firstFocusNode : null,
-                          textAlign: TextAlign.center,
-                          maxLength: 1,
-                          textCapitalization: TextCapitalization.characters,
-                          onChanged: (value) => onTextChanged(value, index),
-                          decoration: InputDecoration(
-                            counterText: "",
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.blue, width: 2),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.blue, width: 2),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.blue, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: isWrongInput ? Colors.red : (isCorrectInput ? Colors.green : Colors.black),
-                          ),
-                        ),
-                      ),
+                      (index) => _buildTextField(index),
                     ),
                   ),
                   ElevatedButton(
@@ -531,5 +617,44 @@ class _GameplayScreenState extends State<GameplayScreen> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  Widget _buildTextField(int index) {
+    return Container(
+      width: 50,
+      height: 50,
+      margin: EdgeInsets.symmetric(horizontal: 4),
+      child: TextField(
+        controller: controllers[index],
+        focusNode: index == 0 ? firstFocusNode : null,
+        textAlign: TextAlign.center,
+        maxLength: 1,
+        enabled: true, // Ensure field is enabled
+        textCapitalization: TextCapitalization.characters,
+        onChanged: (value) => onTextChanged(value, index),
+        decoration: InputDecoration(
+          counterText: "",
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.blue, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.blue, width: 2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.blue, width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: isWrongInput ? Colors.red : (isCorrectInput ? Colors.green : Colors.black),
+        ),
+      ),
+    );
   }
 }
