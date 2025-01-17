@@ -1,6 +1,6 @@
 // API endpoints and constants
 class ApiEndpoints {
-  static const String BASE_URL = "http://43.205.216.87:5000/api";
+  static const String BASE_URL = "http://52.66.202.180:5000/api";
   static const String LOGIN = "/auth/login";
   static const String REGISTER = "/auth/register";
   static const String LEADERBOARD = "/leaderboard/leaderboard";

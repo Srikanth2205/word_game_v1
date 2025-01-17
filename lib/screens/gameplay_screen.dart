@@ -20,7 +20,7 @@ class GameplayScreen extends StatefulWidget {
   _GameplayScreenState createState() => _GameplayScreenState();
 }
 
-class _GameplayScreenState extends State<GameplayScreen> {
+class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProviderStateMixin {
   String jumbledWord = '';
   String wordToken = '';
   int wordLength = 0;
@@ -41,6 +41,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
   List<String> validWords = [];
   String hint = '';
   bool isHintLoading = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool showStreakEmoji = false;
 
   @override
   void initState() {
@@ -50,6 +53,13 @@ class _GameplayScreenState extends State<GameplayScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       firstFocusNode.requestFocus();
     });
+    _animationController = AnimationController(
+      duration: Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
   }
 
   void startCountdown() {
@@ -74,7 +84,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          'http://43.205.216.87:5000/api/start-round?score=$score&mode=${widget.mode}',
+          'http://52.66.202.180:5000/api/start-round?score=$score&mode=${widget.mode}',
         ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
@@ -189,6 +199,19 @@ class _GameplayScreenState extends State<GameplayScreen> {
             if (mounted && (timeLimit > 0 || !isTimedMode)) {
               fetchJumbledWord();
             }
+          });
+
+          // Show celebration animation
+          showStreakEmoji = true;
+          _animationController.forward().then((_) {
+            Future.delayed(Duration(seconds: 1), () {
+              if (mounted) {
+                setState(() {
+                  showStreakEmoji = false;
+                });
+                _animationController.reset();
+              }
+            });
           });
         } else {
           // Wrong answer handling
@@ -518,6 +541,122 @@ class _GameplayScreenState extends State<GameplayScreen> {
     );
   }
 
+  Widget _buildScoreDisplay() {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Score Card
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.blue, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Score',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                AnimatedDefaultTextStyle(
+                  duration: Duration(milliseconds: 300),
+                  style: TextStyle(
+                    fontSize: score > 0 ? 24 : 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                  child: Text('$score'),
+                ),
+              ],
+            ),
+          ),
+          
+          // Streak Card with Emoji
+          Stack(
+            alignment: Alignment.topRight,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: Colors.orange,
+                    width: streak > 0 ? 2 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Streak',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange,
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedDefaultTextStyle(
+                          duration: Duration(milliseconds: 300),
+                          style: TextStyle(
+                            fontSize: streak > 0 ? 24 : 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                          child: Text('$streak'),
+                        ),
+                        if (streak > 0) Text(' 🔥'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (showStreakEmoji)
+                ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Text(
+                    _getStreakEmoji(),
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getStreakEmoji() {
+    if (streak >= 10) return '🏆';
+    if (streak >= 7) return '🌟';
+    if (streak >= 5) return '⭐';
+    if (streak >= 3) return '✨';
+    return '👏';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -592,7 +731,16 @@ class _GameplayScreenState extends State<GameplayScreen> {
                         ],
                       ),
                     ),
-                  Text('Jumbled Word: $jumbledWord'),
+                  _buildScoreDisplay(),
+                  Text(
+                    'Jumbled Word: $jumbledWord',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
@@ -616,6 +764,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     for (var controller in controllers) {
       controller.dispose();
     }
+    _animationController.dispose();
     super.dispose();
   }
 
