@@ -216,44 +216,23 @@ class _GameplayScreenState extends State<GameplayScreen>
           });
         } else {
           // Wrong answer handling
-          if (widget.mode == 'timed') {
-            // For timed mode: show quick feedback and clear input
-            isWrongInput = true;
-            isCorrectInput = false;
+          isWrongInput = true;
+          isCorrectInput = false;
 
-            // Show suggestion to try again
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Try again!'),
-                backgroundColor: Colors.red,
-                duration: Duration(milliseconds: 500),
-              ),
-            );
-
-            // Clear input boxes immediately
-            Future.delayed(Duration(milliseconds: 300), () {
-              if (mounted) {
-                clearInput();
-                firstFocusNode.requestFocus();
-              }
-            });
-          } else if (widget.mode == 'survival') {
-            // Existing survival mode logic
+          if (widget.mode == 'survival') {
             showIncorrectWordDialog(
                 List<String>.from(data['validWords'] ?? []));
             endGame(false);
           } else if (widget.mode == 'classic') {
-            // Existing classic mode logic
             wrongAttempts++;
             showIncorrectWordDialog(
                 List<String>.from(data['validWords'] ?? []));
             if (wrongAttempts >= 3) {
               endGame(false);
-            } else {
-              Future.delayed(AppConstants.FEEDBACK_DELAY, () {
-                if (mounted) clearInput();
-              });
             }
+          } else if (widget.mode == 'timed') {
+            showIncorrectWordDialog(
+                List<String>.from(data['validWords'] ?? []));
           }
         }
       });
@@ -332,10 +311,10 @@ class _GameplayScreenState extends State<GameplayScreen>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title:
-            Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
+        title: Text('Incorrect!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Your guess: $lastGuess'),
             SizedBox(height: 10),
@@ -360,11 +339,11 @@ class _GameplayScreenState extends State<GameplayScreen>
             onPressed: () {
               Navigator.of(context).pop();
               if (widget.mode == 'survival' ||
-                  (widget.mode == 'classic' && wrongAttempts >= 3) ||
-                  (widget.mode == 'timed' && timeLimit <= 0)) {
+                  (widget.mode == 'classic' && wrongAttempts >= 3)) {
                 endGame(false);
               } else {
-                firstFocusNode.requestFocus();
+                // Fetch new word instead of just clearing input
+                fetchJumbledWord();
               }
             },
             child: Text('OK'),
