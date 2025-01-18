@@ -26,7 +26,13 @@ class HomeScreen extends StatelessWidget {
             ),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/leaderboard'),
+              onPressed: () {
+                Navigator.pushNamed(
+                  context,
+                  '/leaderboard',
+                  arguments: token,
+                );
+              },
               child: Text('View Leaderboard'),
             ),
             SizedBox(height: 20),

@@ -147,16 +147,41 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       final entry = leaderboardData[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: index < 3 ? Colors.amber : null,
+                          backgroundColor: index < 3
+                              ? Colors.amber
+                              : Colors.blue.withOpacity(0.2),
                           child: Text('${index + 1}'),
                         ),
-                        title: Text('Score: ${entry['score']}'),
+                        title: Row(
+                          children: [
+                            Text(
+                              'Score: ${entry['score']}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              entry['name'] ?? 'Unknown Player',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                                'Mode: ${entry['mode']?.toString().toUpperCase() ?? 'All'}'),
-                            Text('Date: ${entry['timestamp'] ?? 'N/A'}'),
+                              'Mode: ${entry['mode']?.toString().toUpperCase() ?? 'All'}',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            Text(
+                              'Date: ${entry['timestamp'] ?? 'N/A'}',
+                              style: TextStyle(fontSize: 12),
+                            ),
                           ],
                         ),
                         trailing: index < 3

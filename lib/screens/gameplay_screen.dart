@@ -219,7 +219,26 @@ class _GameplayScreenState extends State<GameplayScreen>
           isWrongInput = true;
           isCorrectInput = false;
 
-          if (widget.mode == 'survival') {
+          if (widget.mode == 'timed') {
+            if (timeLimit <= 0) {
+              // Show valid words dialog only when time runs out
+              showIncorrectWordDialog(
+                  List<String>.from(data['validWords'] ?? []));
+              endGame(false);
+            } else {
+              // During gameplay, just show quick feedback and clear input for retry
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Try again!'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(milliseconds: 500),
+                ),
+              );
+              // Clear input and keep same word for retry
+              clearInput();
+              firstFocusNode.requestFocus();
+            }
+          } else if (widget.mode == 'survival') {
             showIncorrectWordDialog(
                 List<String>.from(data['validWords'] ?? []));
             endGame(false);
@@ -230,9 +249,6 @@ class _GameplayScreenState extends State<GameplayScreen>
             if (wrongAttempts >= 3) {
               endGame(false);
             }
-          } else if (widget.mode == 'timed') {
-            showIncorrectWordDialog(
-                List<String>.from(data['validWords'] ?? []));
           }
         }
       });
@@ -311,7 +327,8 @@ class _GameplayScreenState extends State<GameplayScreen>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('Incorrect!'),
+        title:
+            Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,10 +356,10 @@ class _GameplayScreenState extends State<GameplayScreen>
             onPressed: () {
               Navigator.of(context).pop();
               if (widget.mode == 'survival' ||
-                  (widget.mode == 'classic' && wrongAttempts >= 3)) {
+                  (widget.mode == 'classic' && wrongAttempts >= 3) ||
+                  (widget.mode == 'timed' && timeLimit <= 0)) {
                 endGame(false);
               } else {
-                // Fetch new word instead of just clearing input
                 fetchJumbledWord();
               }
             },
