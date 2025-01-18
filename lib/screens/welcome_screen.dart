@@ -89,7 +89,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     setState(() => isLoading = true);
 
     try {
-      final url = 'http://52.66.202.180:5000/api/auth/login';
+      final url = 'http://13.232.37.18:5000/api/auth/login';
       print('Attempting login at: $url');
 
       final response = await http.post(
@@ -121,7 +121,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed. Please check your credentials.')),
+          SnackBar(
+              content: Text('Login failed. Please check your credentials.')),
         );
       }
     } catch (e) {

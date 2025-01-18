@@ -20,7 +20,8 @@ class GameplayScreen extends StatefulWidget {
   _GameplayScreenState createState() => _GameplayScreenState();
 }
 
-class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProviderStateMixin {
+class _GameplayScreenState extends State<GameplayScreen>
+    with SingleTickerProviderStateMixin {
   String jumbledWord = '';
   String wordToken = '';
   int wordLength = 0;
@@ -84,7 +85,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
     try {
       final response = await http.get(
         Uri.parse(
-          'http://52.66.202.180:5000/api/start-round?score=$score&mode=${widget.mode}',
+          'http://13.232.37.18:5000/api/start-round?score=$score&mode=${widget.mode}',
         ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
@@ -158,10 +159,10 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
 
   Future<void> validateWord() async {
     if (!areAllFieldsFilled()) return;
-    
+
     final guess = controllers.map((c) => c.text.toUpperCase()).join();
     lastGuess = guess;
-    
+
     try {
       final response = await http.post(
         Uri.parse('${ApiEndpoints.BASE_URL}/validate/'),
@@ -178,7 +179,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
       );
 
       final data = jsonDecode(response.body);
-      
+
       setState(() {
         if (data['isCorrect']) {
           // Correct answer
@@ -186,7 +187,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
           isCorrectInput = true;
           score = data['score'];
           streak = data['streak'];
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(data['message'] ?? 'Correct!'),
@@ -219,7 +220,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
             // For timed mode: show quick feedback and clear input
             isWrongInput = true;
             isCorrectInput = false;
-            
+
             // Show suggestion to try again
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -238,12 +239,14 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
             });
           } else if (widget.mode == 'survival') {
             // Existing survival mode logic
-            showIncorrectWordDialog(List<String>.from(data['validWords'] ?? []));
+            showIncorrectWordDialog(
+                List<String>.from(data['validWords'] ?? []));
             endGame(false);
           } else if (widget.mode == 'classic') {
             // Existing classic mode logic
             wrongAttempts++;
-            showIncorrectWordDialog(List<String>.from(data['validWords'] ?? []));
+            showIncorrectWordDialog(
+                List<String>.from(data['validWords'] ?? []));
             if (wrongAttempts >= 3) {
               endGame(false);
             } else {
@@ -263,7 +266,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
   Future<void> fetchHint() async {
     try {
       setState(() => isHintLoading = true);
-      
+
       final response = await http.post(
         Uri.parse('${ApiEndpoints.BASE_URL}/hint/'),
         headers: {
@@ -281,10 +284,11 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
 
         setState(() {
           // Update only the first empty field with hint
-          int emptyIndex = controllers.indexWhere((controller) => controller.text.isEmpty);
+          int emptyIndex =
+              controllers.indexWhere((controller) => controller.text.isEmpty);
           if (emptyIndex != -1) {
             controllers[emptyIndex].text = hint[emptyIndex];
-            
+
             // Ensure the text field remains editable
             controllers[emptyIndex].selection = TextSelection.fromPosition(
               TextPosition(offset: controllers[emptyIndex].text.length),
@@ -294,14 +298,14 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
         });
 
         // Find next empty field and focus it
-        int nextEmptyIndex = controllers.indexWhere((controller) => controller.text.isEmpty);
+        int nextEmptyIndex =
+            controllers.indexWhere((controller) => controller.text.isEmpty);
         if (nextEmptyIndex != -1) {
           // Small delay to ensure proper focus
           Future.delayed(Duration(milliseconds: 50), () {
             if (mounted) {
               FocusScope.of(context).requestFocus(
-                nextEmptyIndex == 0 ? firstFocusNode : FocusNode()
-              );
+                  nextEmptyIndex == 0 ? firstFocusNode : FocusNode());
             }
           });
         }
@@ -328,7 +332,8 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
+        title:
+            Text(isTimedMode && timeLimit <= 0 ? 'Time\'s Up!' : 'Incorrect!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -336,15 +341,16 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
             SizedBox(height: 10),
             Text('Valid words:', style: TextStyle(fontWeight: FontWeight.bold)),
             ...validWords.map((word) => Text(
-              word,
-              style: TextStyle(fontSize: 16, color: Colors.blue),
-            )),
+                  word,
+                  style: TextStyle(fontSize: 16, color: Colors.blue),
+                )),
             if (widget.mode == 'classic' && wrongAttempts < 3)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
                   'You have ${3 - wrongAttempts} chances left',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  style:
+                      TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
               ),
           ],
@@ -353,7 +359,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              if (widget.mode == 'survival' || 
+              if (widget.mode == 'survival' ||
                   (widget.mode == 'classic' && wrongAttempts >= 3) ||
                   (widget.mode == 'timed' && timeLimit <= 0)) {
                 endGame(false);
@@ -411,11 +417,11 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
       print('Error submitting score: $e');
     }
 
-    String message = isWin 
-      ? 'Congratulations! Your score: $score'
-      : isTimedMode && timeLimit <= 0 
-        ? 'Time\'s Up! Final score: $score'
-        : 'Game Over! Final score: $score';
+    String message = isWin
+        ? 'Congratulations! Your score: $score'
+        : isTimedMode && timeLimit <= 0
+            ? 'Time\'s Up! Final score: $score'
+            : 'Game Over! Final score: $score';
 
     if (mounted) {
       // Use single navigation call
@@ -507,12 +513,12 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
                       ),
                       SizedBox(height: 8),
                       ...validWords.map((word) => Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          '• $word',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      )),
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              '• $word',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          )),
                     ],
                   ),
                 ),
@@ -584,7 +590,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
               ],
             ),
           ),
-          
+
           // Streak Card with Emoji
           Stack(
             alignment: Alignment.topRight,
@@ -669,7 +675,9 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: timeLimit <= 10 ? Colors.red.withOpacity(0.2) : Colors.blue.withOpacity(0.2),
+                  color: timeLimit <= 10
+                      ? Colors.red.withOpacity(0.2)
+                      : Colors.blue.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -702,9 +710,12 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
                   if (isTimedMode)
                     Container(
                       margin: EdgeInsets.only(bottom: 20),
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        color: timeLimit <= 10 ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                        color: timeLimit <= 10
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.blue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
                           color: timeLimit <= 10 ? Colors.red : Colors.blue,
@@ -801,7 +812,9 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
         style: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.bold,
-          color: isWrongInput ? Colors.red : (isCorrectInput ? Colors.green : Colors.black),
+          color: isWrongInput
+              ? Colors.red
+              : (isCorrectInput ? Colors.green : Colors.black),
         ),
       ),
     );
