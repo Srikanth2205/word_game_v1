@@ -121,7 +121,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed. Please check your credentials.')),
+          SnackBar(
+              content: Text('Login failed. Please check your credentials.')),
         );
       }
     } catch (e) {
