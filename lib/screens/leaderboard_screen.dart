@@ -29,45 +29,49 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final endpoint = isTopLeaderboard
-          ? ApiEndpoints.TOP_LEADERBOARD
-          : ApiEndpoints.LEADERBOARD;
-
-      String url = '${ApiEndpoints.BASE_URL}$endpoint';
+      String url = '${ApiEndpoints.BASE_URL}/leaderboard/leaderboard/top';
       if (selectedMode != 'all') {
         url += '?mode=$selectedMode';
       }
 
-      print('Fetching leaderboard from: $url');
+      print('Fetching from URL: $url'); // Debug print
 
       final response = await http.get(
         Uri.parse(url),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
 
-      print('Leaderboard Response Status: ${response.statusCode}');
-      print('Leaderboard Response Body: ${response.body}');
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        print('Leaderboard Response: ${response.body}');
-        final dynamic decodedResponse = jsonDecode(response.body);
+        final Map<String, dynamic> decodedResponse = jsonDecode(response.body);
+        
         setState(() {
-          if (decodedResponse is Map &&
-              decodedResponse.containsKey('leaderboard')) {
-            leaderboardData = (decodedResponse['leaderboard'] as List)
-                .where((entry) =>
-                    selectedMode == 'all' || entry['mode'] == selectedMode)
+          // Safely handle the data mapping with null checks
+          leaderboardData = (decodedResponse['leaderboard'] as List?)
+              ?.map((item) => {
+                    'name': item['name']?.toString() ?? 'Unknown',  // Safe string conversion
+                    'score': int.tryParse(item['score']?.toString() ?? '0') ?? 0,
+                    'mode': item['mode']?.toString()?.toLowerCase() ?? 'unknown',
+                    'timestamp': item['timestamp']?.toString() ?? '',
+                  })
+              .toList() ?? [];
+
+          // Filter if needed
+          if (selectedMode != 'all') {
+            leaderboardData = leaderboardData
+                .where((entry) => entry['mode'] == selectedMode.toLowerCase())
                 .toList();
-          } else {
-            leaderboardData = [];
           }
           isLoading = false;
         });
       } else {
-        throw Exception('Failed to load leaderboard: ${response.statusCode}');
+        print('Failed to load leaderboard: ${response.statusCode}');
+        throw Exception('Failed to load leaderboard');
       }
     } catch (e) {
-      print('Leaderboard Error: $e');
+      print('Error fetching leaderboard: $e');
       setState(() {
         isLoading = false;
         leaderboardData = [];
@@ -86,29 +90,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       appBar: AppBar(
         title: Text('Leaderboard'),
         actions: [
-          // Add a home button to navigate back to the home screen
           IconButton(
             icon: Icon(Icons.home),
             onPressed: () {
               Navigator.pushNamed(context, '/home', arguments: widget.token);
             },
           ),
-          // Toggle between full and top leaderboard
-          IconButton(
-            icon: Icon(isTopLeaderboard ? Icons.list : Icons.star),
-            onPressed: () {
-              setState(() {
-                isTopLeaderboard = !isTopLeaderboard;
-                isLoading = true;
-              });
-              fetchLeaderboard();
-            },
-          ),
         ],
       ),
       body: Column(
         children: [
-          // Mode filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(vertical: 8),
@@ -137,34 +128,76 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ],
             ),
           ),
-          // Leaderboard list
           Expanded(
             child: isLoading
                 ? Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: leaderboardData.length,
-                    itemBuilder: (context, index) {
-                      final entry = leaderboardData[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: index < 3 ? Colors.amber : null,
-                          child: Text('${index + 1}'),
-                        ),
-                        title: Text('Score: ${entry['score']}'),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                                'Mode: ${entry['mode']?.toString().toUpperCase() ?? 'All'}'),
-                            Text('Date: ${entry['timestamp'] ?? 'N/A'}'),
-                          ],
-                        ),
-                        trailing: index < 3
-                            ? Icon(Icons.emoji_events, color: Colors.amber)
-                            : null,
-                      );
-                    },
-                  ),
+                : leaderboardData.isEmpty
+                    ? Center(child: Text('No leaderboard data available'))
+                    : ListView.builder(
+                        itemCount: leaderboardData.length,
+                        itemBuilder: (context, index) {
+                          final entry = leaderboardData[index];
+                          return Card(
+                            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            elevation: index < 3 ? 4 : 1,
+                            color: index < 3 ? Colors.amber.shade50 : null,
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: index < 3 
+                                    ? [Colors.amber, Colors.grey[300], Colors.brown[300]][index]
+                                    : Colors.blue.withOpacity(0.2),
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    color: index < 3 ? Colors.white : Colors.black87,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                entry['name']?.toString() ?? 'Unknown',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Score: ${entry['score']}',
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Mode: ${(entry['mode'] as String).toUpperCase()}',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                  Text(
+                                    'Date: ${entry['timestamp']}',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: index < 3
+                                  ? Icon(
+                                      Icons.emoji_events,
+                                      color: [
+                                        Colors.amber,
+                                        Colors.grey[400],
+                                        Colors.brown[300]
+                                      ][index],
+                                    )
+                                  : null,
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -179,3 +212,4 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     fetchLeaderboard();
   }
 }
+

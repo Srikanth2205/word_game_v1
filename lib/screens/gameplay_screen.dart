@@ -84,7 +84,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
     try {
       final response = await http.get(
         Uri.parse(
-          'http://52.66.202.180:5000/api/start-round?score=$score&mode=${widget.mode}',
+          'http://65.0.96.254:5000/api/start-round?score=$score&mode=${widget.mode}',
         ),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
