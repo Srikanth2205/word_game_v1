@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import './leaderboard_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final String token;
@@ -26,7 +27,14 @@ class HomeScreen extends StatelessWidget {
             ),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/leaderboard'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LeaderboardScreen(token: token),
+                  ),
+                );
+              },
               child: Text('View Leaderboard'),
             ),
             SizedBox(height: 20),
